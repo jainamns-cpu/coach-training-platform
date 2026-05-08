@@ -378,7 +378,12 @@ export default function HomeTab({ user, client, onTabChange }) {
       const sevenISO = sevenDaysAgo.toISOString()
       const sixtyISO = sixtyDaysAgo.toISOString()
 
-      // All 9 queries in one Promise.all. Per-query .catch() so one failure
+      // The Supabase browser client returns a PostgrestBuilder (thenable) not
+      // a real Promise, so .catch() isn't on its prototype. Wrapping each
+      // query in Promise.resolve() converts it to a native Promise first.
+      const q = (query, fallback) => Promise.resolve(query).catch(() => fallback)
+
+      // All 9 queries in one Promise.all. Per-query fallback so one failure
       // doesn't kill the rest — partial data is better than nothing.
       const [
         mealCountRes,       // 0 — lifetime meal count (new-client check)
@@ -391,72 +396,72 @@ export default function HomeTab({ user, client, onTabChange }) {
         checkins7Res,       // 7 — full check-in rows last 7 days (strip + recent)
         recentWorkoutRes,   // 8 — most recent workout (RecentContext)
       ] = await Promise.all([
-        supabase
+        q(supabase
           .from('meals')
           .select('*', { count: 'exact', head: true })
-          .eq('client_id', user.id)
-          .catch(() => ({ count: 0 })),
+          .eq('client_id', user.id),
+          { count: 0 }),
 
-        supabase
+        q(supabase
           .from('check_ins')
           .select('*', { count: 'exact', head: true })
-          .eq('client_id', user.id)
-          .catch(() => ({ count: 0 })),
+          .eq('client_id', user.id),
+          { count: 0 }),
 
-        supabase
+        q(supabase
           .from('messages')
           .select('*', { count: 'exact', head: true })
           .eq('client_id', user.id)
-          .eq('role', 'user')
-          .catch(() => ({ count: 0 })),
+          .eq('role', 'user'),
+          { count: 0 }),
 
-        supabase
+        q(supabase
           .from('meals')
           .select('created_at')
           .eq('client_id', user.id)
-          .gte('created_at', sixtyISO)
-          .catch(() => ({ data: [] })),
+          .gte('created_at', sixtyISO),
+          { data: [] }),
 
-        supabase
+        q(supabase
           .from('check_ins')
           .select('created_at')
           .eq('client_id', user.id)
-          .gte('created_at', sixtyISO)
-          .catch(() => ({ data: [] })),
+          .gte('created_at', sixtyISO),
+          { data: [] }),
 
-        supabase
+        q(supabase
           .from('messages')
           .select('created_at')
           .eq('client_id', user.id)
           .eq('role', 'user')
-          .gte('created_at', sixtyISO)
-          .catch(() => ({ data: [] })),
+          .gte('created_at', sixtyISO),
+          { data: [] }),
 
-        supabase
+        q(supabase
           .from('meals')
           .select('parsed_macros, created_at, raw_text')
           .eq('client_id', user.id)
           .gte('created_at', sevenISO)
           .not('parsed_macros', 'is', null)
-          .order('created_at', { ascending: false })
-          .catch(() => ({ data: [] })),
+          .order('created_at', { ascending: false }),
+          { data: [] }),
 
-        supabase
+        q(supabase
           .from('check_ins')
           .select('mood, stress, notes, created_at')
           .eq('client_id', user.id)
           .gte('created_at', sevenISO)
-          .order('created_at', { ascending: false })
-          .catch(() => ({ data: [] })),
+          .order('created_at', { ascending: false }),
+          { data: [] }),
 
-        supabase
+        q(supabase
           .from('workouts')
           .select('description, created_at')
           .eq('client_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
-          .catch(() => ({ data: null })),
+          .single(),
+          { data: null }),
       ])
 
       const meals7    = meals7Res.data    || []
