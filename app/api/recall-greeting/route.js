@@ -126,41 +126,43 @@ export async function GET() {
   const sevenDaysAgoISO = sevenDaysAgo.toISOString()
 
   // Fetch all recent activity in parallel.
-  // Each query has its own .catch() so one failing query doesn't kill the rest —
-  // partial data is better than no data for the greeting.
+  // PostgrestBuilder is a thenable but not a full Promise — wrap each in
+  // Promise.resolve() so .catch() works reliably.
+  const q = (query, fallback) => Promise.resolve(query).catch(() => fallback)
+
   const [mealsRes, checkinsRes, messagesRes, clientRes] = await Promise.all([
-    db
+    q(db
       .from('meals')
       .select('raw_text, parsed_macros, created_at')
       .eq('client_id', user.id)
       .gte('created_at', sevenDaysAgoISO)
       .not('parsed_macros', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(20)
-      .catch(() => ({ data: [] })),
-    db
+      .limit(20),
+      { data: [] }),
+    q(db
       .from('check_ins')
       .select('mood, stress, notes, created_at')
       .eq('client_id', user.id)
       .gte('created_at', sevenDaysAgoISO)
       .order('created_at', { ascending: false })
-      .limit(7)
-      .catch(() => ({ data: [] })),
-    db
+      .limit(7),
+      { data: [] }),
+    q(db
       .from('messages')
       .select('role, content, created_at')
       .eq('client_id', user.id)
       .eq('role', 'user')
       .gte('created_at', sevenDaysAgoISO)
       .order('created_at', { ascending: false })
-      .limit(10)
-      .catch(() => ({ data: [] })),
-    db
+      .limit(10),
+      { data: [] }),
+    q(db
       .from('clients')
       .select('name')
       .eq('id', user.id)
-      .single()
-      .catch(() => ({ data: null })),
+      .single(),
+      { data: null }),
   ])
 
   const meals    = mealsRes.data    || []
