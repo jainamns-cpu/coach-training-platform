@@ -95,8 +95,10 @@ export default function AppPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-white">
-        <p className="text-gray-400 text-sm">Loading...</p>
+      <div className="flex justify-center min-h-screen bg-bone">
+        <div className="w-full max-w-[440px] flex items-center justify-center h-screen">
+          <p className="text-muted text-sm font-body">Loading...</p>
+        </div>
       </div>
     )
   }
@@ -104,34 +106,36 @@ export default function AppPage() {
   const { bg } = TAB_CONFIG[activeTab]
 
   return (
-    <div className={`flex flex-col h-screen ${bg} transition-colors duration-200`}>
-      <div className="flex-1 overflow-hidden">
-        {activeTab === 'home'      && <HomeTab user={user} client={client} onTabChange={setActiveTab} />}
-        {activeTab === 'nutrition' && <NutritionTab user={user} client={client} />}
-        {activeTab === 'chat'      && <ChatTab user={user} />}
-        {activeTab === 'workout'   && <WorkoutTab user={user} />}
-        {activeTab === 'wellbeing' && <WellbeingTab user={user} client={client} />}
-      </div>
-
-      <nav className="bg-white border-t border-gray-100 flex-shrink-0">
-        <div className="flex">
-          {TABS.map(({ id, label, Icon }) => {
-            const isActive = activeTab === id
-            return (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`flex-1 flex flex-col items-center py-3 gap-0.5 transition-colors ${
-                  isActive ? TAB_CONFIG[id].activeColor : 'text-gray-400'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-[10px] font-medium">{label}</span>
-              </button>
-            )
-          })}
+    <div className="flex justify-center min-h-screen bg-bone">
+      <div className={`w-full max-w-[440px] flex flex-col h-screen ${bg} transition-colors duration-200`}>
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'home'      && <HomeTab user={user} client={client} onTabChange={setActiveTab} />}
+          {activeTab === 'nutrition' && <NutritionTab user={user} client={client} />}
+          {activeTab === 'chat'      && <ChatTab user={user} />}
+          {activeTab === 'workout'   && <WorkoutTab user={user} />}
+          {activeTab === 'wellbeing' && <WellbeingTab user={user} client={client} />}
         </div>
-      </nav>
+
+        <nav className="bg-surface border-t border-ink/6 flex-shrink-0">
+          <div className="flex">
+            {TABS.map(({ id, label, Icon }) => {
+              const isActive = activeTab === id
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`flex-1 flex flex-col items-center py-3 gap-0.5 transition-colors ${
+                    isActive ? 'text-coral' : 'text-muted'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-[10px] font-medium font-body">{label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </nav>
+      </div>
     </div>
   )
 }

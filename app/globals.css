@@ -1,26 +1,45 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Design system tokens (Tailwind v4 @theme block) ──────────────────────── */
+/* Static hex values → plain @theme emits these onto :root
+   so getComputedStyle and bg-bone / text-coral utilities both work. */
+@theme {
+  --color-bone:       #F4F1EC;
+  --color-surface:    #FFFFFF;
+  --color-ink:        #1A1A1A;
+  --color-coral:      #FF5436;
+  --color-coral-soft: #F2A48F;
+  --color-coral-deep: #D63C20;
+  --color-clay:       #CC785C;
+  --color-muted:      #8A8A8A;
 }
 
+/* Font var() references → @theme inline so Tailwind doesn't try to
+   resolve them at build time. next/font sets these on <html> at runtime.
+   Utility classes: font-familjen, font-body, font-space                  */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-familjen: var(--font-familjen-grotesk);
+  --font-body:     var(--font-inter);
+  --font-space:    var(--font-space-grotesk);
 }
 
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+:root {
+  --background: #F4F1EC;
+  --foreground: #1A1A1A;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), Arial, sans-serif;
+}
+
+/* ── Dark mode (commented out — revisit later) ────────────────────────────
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
 }
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+─────────────────────────────────────────────────────────────────────────── */

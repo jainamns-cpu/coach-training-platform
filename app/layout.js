@@ -1,8 +1,18 @@
-import { Geist } from "next/font/google";
+import { Familjen_Grotesk, Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const geist = Geist({
-  variable: "--font-geist-sans",
+const familjenGrotesk = Familjen_Grotesk({
+  variable: "--font-familjen-grotesk",
+  subsets: ["latin"],
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
 });
 
@@ -23,12 +33,15 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#111111",
+  themeColor: "#F4F1EC",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${geist.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${familjenGrotesk.variable} ${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
+    >
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

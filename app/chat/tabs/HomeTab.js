@@ -159,8 +159,9 @@ function RecallGreeting({ clientId, displayName, isNewClient }) {
     return () => { cancelled = true }
   }, [clientId, isNewClient])
 
+  // clay text + Familjen Grotesk — AI/coach accent, as specified
   return (
-    <p className="text-xl leading-snug text-gray-900 font-normal mt-0.5">
+    <p className="text-xl leading-snug text-clay font-familjen font-normal mt-0.5">
       {greeting}
     </p>
   )
@@ -213,25 +214,25 @@ function TodaysFocus({ homeData, onTabChange }) {
 
   return (
     <div className="space-y-3">
-      {/* Primary — full-width, dark, visually dominant */}
+      {/* Primary — coral, full-width, visually dominant */}
       <button
         onClick={() => onTabChange(focus.action)}
-        className="w-full bg-gray-900 text-white text-base font-semibold py-5 rounded-2xl active:bg-gray-800 transition-colors"
+        className="w-full bg-coral text-white text-base font-semibold font-body py-5 rounded-2xl active:opacity-90 transition-opacity"
       >
         {focus.label}
       </button>
 
-      {/* Secondaries — always these two, side by side, lower contrast */}
+      {/* Secondaries — bone background, ink text, clearly subordinate */}
       <div className="flex gap-3">
         <button
           onClick={() => onTabChange('nutrition')}
-          className="flex-1 bg-gray-100 text-gray-700 text-sm font-medium py-3 rounded-xl active:bg-gray-200 transition-colors"
+          className="flex-1 bg-bone text-ink text-sm font-medium font-body py-3 rounded-xl border border-ink/10 active:bg-ink/5 transition-colors"
         >
           Log meal
         </button>
         <button
           onClick={() => onTabChange('chat')}
-          className="flex-1 bg-gray-100 text-gray-700 text-sm font-medium py-3 rounded-xl active:bg-gray-200 transition-colors"
+          className="flex-1 bg-bone text-ink text-sm font-medium font-body py-3 rounded-xl border border-ink/10 active:bg-ink/5 transition-colors"
         >
           Chat
         </button>
@@ -252,44 +253,46 @@ function WeeklyStrip({ weekDays, weeklyAvgCal, weeklyAvgProtein, daysLogged }) {
   const hasActivity = daysLogged > 0
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-      <p className="text-sm font-semibold text-gray-800 mb-4">This week</p>
+    <div className="bg-surface rounded-2xl p-3.5 border border-ink/6">
+      <p className="text-sm font-bold font-familjen text-ink mb-3">This week</p>
 
-      {/* 7 pills — one per day */}
-      <div className="flex justify-between">
+      {/* 7 pills — compact row, not spread full width */}
+      <div className="flex gap-2">
         {weekDays.map((day) => {
-          // Pill fill state
-          const full    = day.loggedMeal && day.loggedCheckin
-          const partial = day.loggedMeal || day.loggedCheckin
-          const pillBg  = full ? 'bg-gray-900' : partial ? 'bg-gray-300' : 'bg-gray-100'
+          // Any activity = filled. Today gets coral, others get ink.
+          const hasAct  = day.loggedMeal || day.loggedCheckin
+          const pillBg  = hasAct
+            ? (day.isToday ? 'bg-coral' : 'bg-ink')
+            : 'bg-ink/10'
 
-          // Today gets a ring regardless of fill
-          const todayRing = day.isToday ? 'ring-2 ring-gray-900 ring-offset-2' : ''
+          // Today gets a ring regardless of fill state
+          const todayRing = day.isToday ? 'ring-2 ring-coral ring-offset-2' : ''
 
           // Day label — narrow weekday initial from the stored date string
           const label = new Date(day.dateStr + 'T12:00:00')
             .toLocaleDateString('en-GB', { weekday: 'narrow' })
 
           return (
-            <div key={day.dateStr} className="flex flex-col items-center gap-1.5">
+            <div key={day.dateStr} className="flex flex-col items-center gap-1">
               <div
-                className={`w-8 h-8 rounded-full cursor-default ${pillBg} ${todayRing}`}
+                className={`w-7 h-7 rounded-full cursor-default ${pillBg} ${todayRing}`}
               />
-              <span className="text-[11px] text-gray-400">{label}</span>
+              <span className="text-[10px] text-muted font-body">{label}</span>
             </div>
           )
         })}
       </div>
 
-      {/* Summary lines — conditional */}
+      {/* Summary lines — solid ink text, numbers in font-space */}
       {hasActivity && (
         <div className="mt-3 space-y-0.5">
           {hasAverages && (
-            <p className="text-sm text-gray-500">
-              Avg: {weeklyAvgCal.toLocaleString()} kcal · {weeklyAvgProtein}g protein
+            <p className="text-sm text-ink">
+              <span className="font-space">Avg: {weeklyAvgCal.toLocaleString()} kcal · {weeklyAvgProtein}g</span>
+              <span className="font-body"> protein</span>
             </p>
           )}
-          <p className="text-sm text-gray-500">{daysLogged}/7 days logged</p>
+          <p className="text-sm text-ink font-space">{daysLogged}/7 days logged</p>
         </div>
       )}
     </div>
@@ -341,11 +344,11 @@ function RecentContext({ recentMeal, recentCheckin, recentWorkout }) {
   if (lines.length === 0) return null
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-      <p className="text-sm font-semibold text-gray-800 mb-3">Recent</p>
+    <div className="bg-surface rounded-2xl p-3.5 border border-ink/6">
+      <p className="text-sm font-bold font-familjen text-ink mb-2.5">Recent</p>
       <div className="space-y-1.5">
         {lines.map((line, i) => (
-          <p key={i} className="text-sm text-gray-500">{line}</p>
+          <p key={i} className="text-sm text-muted font-body">{line}</p>
         ))}
       </div>
     </div>
@@ -536,26 +539,25 @@ export default function HomeTab({ user, client, onTabChange }) {
   // homeData === null means the fetch hasn't resolved yet
   if (homeData === null) {
     return (
-      <div className="flex flex-col h-full overflow-y-auto">
-        <div className="px-5 pt-12 pb-4">
-          <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
-          <div className="h-7 w-48 bg-gray-100 rounded" />
+      <div className="flex flex-col h-full overflow-y-auto bg-bone">
+        <div className="px-5 pt-10 pb-3">
+          <div className="h-3 w-16 bg-ink/8 rounded mb-2" />
+          <div className="h-7 w-48 bg-ink/8 rounded" />
         </div>
-        <div className="px-5 space-y-4">
-          <div className="h-28 bg-gray-100 rounded-2xl" />
-          <div className="h-28 bg-gray-100 rounded-2xl" />
-          <div className="h-20 bg-gray-100 rounded-2xl" />
+        <div className="px-5 space-y-3">
+          <div className="h-28 bg-ink/8 rounded-2xl" />
+          <div className="h-24 bg-ink/8 rounded-2xl" />
+          <div className="h-20 bg-ink/8 rounded-2xl" />
         </div>
       </div>
     )
   }
 
-  // ── Existing UI (unchanged — steps 3–6 will replace each section) ─────────
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
-      {/* Header — RecallGreeting replaces the old static h1 */}
-      <div className="px-5 pt-12 pb-4">
-        <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">J.ai</p>
+    <div className="flex flex-col h-full overflow-y-auto bg-bone">
+      {/* Header */}
+      <div className="px-5 pt-10 pb-3">
+        <p className="text-xs text-muted font-body font-medium uppercase tracking-wide">J.ai</p>
         <RecallGreeting
           clientId={user.id}
           displayName={displayName}
@@ -564,11 +566,11 @@ export default function HomeTab({ user, client, onTabChange }) {
       </div>
 
       {/* TodaysFocus — sits between greeting and data cards */}
-      <div className="px-5 pb-4">
+      <div className="px-5 pb-3">
         <TodaysFocus homeData={homeData} onTabChange={onTabChange} />
       </div>
 
-      <div className="px-5 pb-8 space-y-4">
+      <div className="px-5 pb-6 space-y-3">
 
         {/* WeeklyStrip — 7-day activity view */}
         <WeeklyStrip
@@ -587,16 +589,16 @@ export default function HomeTab({ user, client, onTabChange }) {
 
         {/* Wellbeing snapshot */}
         {latestCheckin && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <p className="text-sm font-semibold text-gray-800 mb-3">Wellbeing</p>
-            <div className="flex gap-4">
-              <div className="flex-1 bg-blue-50 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-blue-600">{latestCheckin.mood}</p>
-                <p className="text-[11px] text-blue-400 mt-0.5">Mood</p>
+          <div className="bg-surface rounded-2xl p-3.5 border border-ink/6">
+            <p className="text-sm font-bold font-familjen text-ink mb-2.5">Wellbeing</p>
+            <div className="flex gap-3">
+              <div className="flex-1 bg-bone rounded-xl p-3 text-center">
+                <p className="text-2xl font-space font-bold text-ink">{latestCheckin.mood}</p>
+                <p className="text-[11px] font-body text-muted mt-0.5">Mood</p>
               </div>
-              <div className="flex-1 bg-blue-50 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-blue-600">{latestCheckin.stress}</p>
-                <p className="text-[11px] text-blue-400 mt-0.5">Stress</p>
+              <div className="flex-1 bg-bone rounded-xl p-3 text-center">
+                <p className="text-2xl font-space font-bold text-ink">{latestCheckin.stress}</p>
+                <p className="text-[11px] font-body text-muted mt-0.5">Stress</p>
               </div>
             </div>
           </div>

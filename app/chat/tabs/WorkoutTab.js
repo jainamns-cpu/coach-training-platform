@@ -68,18 +68,19 @@ export default function WorkoutTab({ user }) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
+    <div className="flex flex-col h-full overflow-y-auto bg-bone">
+
       {/* Header */}
-      <div className="px-5 pt-12 pb-4">
-        <p className="text-xs text-rose-500 font-medium uppercase tracking-wide">Training</p>
-        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Workout log</h1>
+      <div className="px-5 pt-10 pb-3 flex-shrink-0">
+        <p className="text-xs text-muted font-body font-medium uppercase tracking-wide">J.ai</p>
+        <h1 className="text-2xl font-bold font-familjen text-ink mt-0.5">Workout log</h1>
       </div>
 
-      <div className="px-5 pb-8 space-y-4">
+      <div className="px-5 pb-6 space-y-3">
 
-        {/* Log input */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
-          <p className="text-sm font-semibold text-gray-800">Log today's session</p>
+        {/* Log input card */}
+        <div className="bg-surface rounded-2xl p-3.5 border border-ink/6 space-y-3">
+          <p className="text-sm font-bold font-familjen text-ink">Log today's session</p>
           <div className="flex gap-2">
             <textarea
               value={input}
@@ -87,12 +88,14 @@ export default function WorkoutTab({ user }) {
               onKeyDown={handleKeyDown}
               placeholder="e.g. 5km run, 30 min. Upper body — bench, rows, shoulder press."
               rows={2}
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:border-gray-400 transition-colors"
+              className="flex-1 bg-bone border border-ink/15 rounded-xl px-3 py-2.5 text-sm font-body text-ink placeholder-muted resize-none focus:outline-none focus:border-ink/30 transition-colors"
             />
             <button
               onClick={startVoice}
               className={`self-start mt-0.5 w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 transition-colors ${
-                listening ? 'bg-rose-500 border-rose-500 text-white' : 'border-gray-200 text-gray-400'
+                listening
+                  ? 'bg-ink border-ink text-white'
+                  : 'bg-bone border-ink/15 text-muted'
               }`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -103,51 +106,52 @@ export default function WorkoutTab({ user }) {
           <button
             onClick={logWorkout}
             disabled={submitting || !input.trim()}
-            className="w-full bg-rose-600 text-white rounded-xl py-2.5 text-sm font-semibold disabled:opacity-50 active:bg-rose-700 transition-colors"
+            className="w-full bg-coral text-white rounded-xl py-2.5 text-sm font-semibold font-body disabled:opacity-40 active:opacity-80 transition-opacity"
           >
             {submitting ? 'Logging...' : 'Log workout'}
           </button>
           {feedback && (
-            <div className="bg-rose-50 border border-rose-100 rounded-xl px-3 py-2.5">
-              <p className="text-sm text-rose-800">{feedback}</p>
+            <div className="bg-clay/10 border border-clay/15 rounded-xl px-3 py-2.5">
+              <p className="text-sm font-body text-ink">{feedback}</p>
             </div>
           )}
         </div>
 
         {/* Recent workouts */}
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 px-1">Last 7 days</p>
-          {loading ? (
-            <p className="text-gray-400 text-sm text-center py-4">Loading...</p>
-          ) : workouts.length === 0 ? (
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 text-center">
-              <p className="text-gray-400 text-sm">No sessions logged yet.</p>
-              <p className="text-gray-300 text-xs mt-1">Log your first workout above.</p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {workouts.map(w => (
-                <div key={w.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800 leading-snug">{w.description}</p>
-                      {w.coach_reply && (
-                        <p className="text-xs text-gray-500 mt-1.5 leading-snug">{w.coach_reply}</p>
-                      )}
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      <span className="text-[10px] text-gray-400">
-                        {new Date(w.created_at).toLocaleDateString('en-GB', {
-                          weekday: 'short', month: 'short', day: 'numeric',
-                        })}
-                      </span>
-                    </div>
+        <p className="text-xs font-bold font-familjen text-ink px-1 pt-1">Last 7 days</p>
+
+        {loading ? (
+          <div className="space-y-2">
+            <div className="h-16 bg-ink/8 rounded-2xl" />
+            <div className="h-16 bg-ink/8 rounded-2xl" />
+          </div>
+        ) : workouts.length === 0 ? (
+          <div className="bg-surface rounded-2xl p-5 border border-ink/6 text-center">
+            <p className="text-muted text-sm font-body">No sessions logged yet.</p>
+            <p className="text-muted/60 text-xs font-body mt-1">Log your first workout above.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {workouts.map(w => (
+              <div key={w.id} className="bg-surface rounded-2xl p-3.5 border border-ink/6">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-sm font-body text-ink leading-snug">{w.description}</p>
+                    {/* coach_reply is an AI coach response — clay accent */}
+                    {w.coach_reply && (
+                      <p className="text-xs font-body text-clay mt-1.5 leading-snug">{w.coach_reply}</p>
+                    )}
                   </div>
+                  <span className="flex-shrink-0 text-[10px] font-space text-muted">
+                    {new Date(w.created_at).toLocaleDateString('en-GB', {
+                      weekday: 'short', month: 'short', day: 'numeric',
+                    })}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
 
       </div>
     </div>
