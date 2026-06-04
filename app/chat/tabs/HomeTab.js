@@ -54,21 +54,18 @@ function computeStreak(activityDates) {
 }
 
 // Build the 7-day strip array — always exactly 7 items, oldest first.
-// Pill state: solid = both, partial = one, empty = neither.
-function buildWeekDays(meals7, checkins7) {
-  const today = new Date()
-  const mealDates    = new Set(meals7.map(m    => toLocalDateStr(m.created_at)))
-  const checkinDates = new Set(checkins7.map(c => toLocalDateStr(c.created_at)))
+// A day is "logged" if it has at least one meal.
+function buildWeekDays(meals7) {
+  const today    = new Date()
+  const mealDates = new Set(meals7.map(m => toLocalDateStr(m.created_at)))
 
   const days = []
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(today.getDate() - i)
-    const dateStr      = d.toLocaleDateString('en-CA')
-    const label        = d.toLocaleDateString('en-GB', { weekday: 'short' }).charAt(0)
-    const loggedMeal   = mealDates.has(dateStr)
-    const loggedCheckin = checkinDates.has(dateStr)
-    days.push({ dateStr, label, loggedMeal, loggedCheckin, isToday: i === 0 })
+    const dateStr    = d.toLocaleDateString('en-CA')
+    const loggedMeal = mealDates.has(dateStr)
+    days.push({ dateStr, loggedMeal, isToday: i === 0 })
   }
   return days
 }
@@ -98,68 +95,48 @@ function timeAwareGreeting(name) {
 
 // ---------------------------------------------------------------------------
 // RecallGreeting — personalized one-liner at the top of the home screen.
-//
-// Render flow (no flash, no skeleton):
-//   1. Initialise state to time-aware fallback — renders immediately.
-//   2. If isNewClient → skip cache + API, keep fallback forever.
-//   3. If clientId missing → same.
-//   4. Check localStorage — if hit and < 6 h old → swap in cached greeting.
-//   5. Miss / stale → fallback already visible, fire API in background.
-//   6. API success → swap displayed greeting + write cache.
-//   7. API failure / empty → fallback stays, no crash.
 // ---------------------------------------------------------------------------
 
 const GREETING_TTL = 6 * 60 * 60 * 1000 // 6 hours in ms
 
 function RecallGreeting({ clientId, displayName, isNewClient }) {
-  // Initialise to fallback — something is always visible before any async work.
   const [greeting, setGreeting] = useState(() => timeAwareGreeting(displayName))
 
   useEffect(() => {
-    // New client or no ID — nothing to look up.
     if (!clientId || isNewClient) return
 
-    // Cancellation flag — prevents setGreeting firing on an unmounted
-    // component or after clientId has changed and the effect re-ran.
     let cancelled = false
 
     const today    = new Date().toLocaleDateString('en-CA')
     const cacheKey = `recallGreeting:${clientId}:${today}`
 
-    // ── 1. Try localStorage ──────────────────────────────────────────────
     try {
       const raw = localStorage.getItem(cacheKey)
       if (raw) {
         const { greeting: cached, cachedAt } = JSON.parse(raw)
         if (cached && Date.now() - cachedAt < GREETING_TTL) {
           if (!cancelled) setGreeting(cached)
-          return // Fresh cache hit — no API call needed.
+          return
         }
       }
-    } catch {} // Storage read failed — fall through to API. Never crash.
+    } catch {}
 
-    // ── 2. Cache miss or stale — fetch in background ─────────────────────
-    // Fallback is already displayed; we swap silently when the API responds.
     fetch('/api/recall-greeting', { method: 'GET' })
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
-        if (cancelled) return // Component unmounted or clientId changed.
+        if (cancelled) return
         const g = data?.greeting
-        if (!g) return // Empty or missing — keep fallback.
-
+        if (!g) return
         setGreeting(g)
-
-        // ── 3. Write to localStorage ──────────────────────────────────────
         try {
           localStorage.setItem(cacheKey, JSON.stringify({ greeting: g, cachedAt: Date.now() }))
-        } catch {} // Write failed (storage full, private mode) — non-critical.
+        } catch {}
       })
-      .catch(() => {}) // Network or parse error — fallback stays. No crash.
+      .catch(() => {})
 
     return () => { cancelled = true }
   }, [clientId, isNewClient])
 
-  // clay text + Familjen Grotesk — AI/coach accent, as specified
   return (
     <p className="text-xl leading-snug text-clay font-familjen font-normal mt-0.5">
       {greeting}
@@ -171,50 +148,34 @@ function RecallGreeting({ clientId, displayName, isNewClient }) {
 // TodaysFocus — one primary action + two fixed secondary buttons.
 // ---------------------------------------------------------------------------
 
-// Pure function — no side effects, easy to unit-test.
-// Returns { label, action } based on client state and time of day.
-function decideTodaysFocus({ isNewClient, todayMeals, hasTodayCheckin }, hour) {
-  // 1. Brand new client — onboard them into chat first.
+// Pure function — no check-in awareness, just meal and chat nudges.
+function decideTodaysFocus({ isNewClient, todayMeals }, hour) {
   if (isNewClient) {
     return { label: 'Say hi to your coach', action: 'chat' }
   }
 
-  const noMealsToday   = (todayMeals || []).length === 0
-  const noCheckinToday = !hasTodayCheckin
-  const isMorning      = hour < 11
-  const isEvening      = hour >= 20
+  const noMealsToday = (todayMeals || []).length === 0
+  const isMorning    = hour < 11
+  const isEvening    = hour >= 20
 
-  // 2. Morning: meal log is the top priority.
   if (isMorning && noMealsToday) {
     return { label: 'Log your first meal of the day', action: 'nutrition' }
   }
-
-  // 3. Evening: check-in or chat takes over from meal logging.
   if (isEvening) {
-    if (noCheckinToday) {
-      return { label: 'Quick check-in: how was today?', action: 'wellbeing' }
-    }
     return { label: 'Chat with your coach', action: 'chat' }
   }
-
-  // 4. Standard daytime priority: meal → check-in → chat.
   if (noMealsToday) {
     return { label: 'Log your first meal of the day', action: 'nutrition' }
-  }
-  if (noCheckinToday) {
-    return { label: 'Quick check-in: how are you feeling?', action: 'wellbeing' }
   }
   return { label: 'Chat with your coach', action: 'chat' }
 }
 
 function TodaysFocus({ homeData, onTabChange }) {
-  // Compute hour at render time so it reflects reality if the page is left open.
-  const hour   = new Date().getHours()
-  const focus  = decideTodaysFocus(homeData, hour)
+  const hour  = new Date().getHours()
+  const focus = decideTodaysFocus(homeData, hour)
 
   return (
     <div className="space-y-3">
-      {/* Primary — coral, full-width, visually dominant */}
       <button
         onClick={() => onTabChange(focus.action)}
         className="w-full bg-coral text-white text-base font-semibold font-body py-5 rounded-2xl active:opacity-90 transition-opacity"
@@ -222,7 +183,6 @@ function TodaysFocus({ homeData, onTabChange }) {
         {focus.label}
       </button>
 
-      {/* Secondaries — bone background, ink text, clearly subordinate */}
       <div className="flex gap-3">
         <button
           onClick={() => onTabChange('nutrition')}
@@ -242,11 +202,10 @@ function TodaysFocus({ homeData, onTabChange }) {
 }
 
 // ---------------------------------------------------------------------------
-// WeeklyStrip — 7-day activity strip with summary lines.
+// WeeklyStrip — 7-day meal activity strip.
 // ---------------------------------------------------------------------------
 
 function WeeklyStrip({ weekDays, weeklyAvgCal, weeklyAvgProtein, daysLogged }) {
-  // Cheap insurance — data layer should always deliver exactly 7 items.
   if (!weekDays || weekDays.length !== 7) return null
 
   const hasAverages = weeklyAvgCal > 0 || weeklyAvgProtein > 0
@@ -256,34 +215,24 @@ function WeeklyStrip({ weekDays, weeklyAvgCal, weeklyAvgProtein, daysLogged }) {
     <div className="bg-surface rounded-2xl p-3.5 border border-ink/6">
       <p className="text-sm font-bold font-familjen text-ink mb-3">This week</p>
 
-      {/* 7 pills — compact row, not spread full width */}
       <div className="flex gap-2">
         {weekDays.map((day) => {
-          // Any activity = filled. Today gets coral, others get ink.
-          const hasAct  = day.loggedMeal || day.loggedCheckin
-          const pillBg  = hasAct
+          const pillBg   = day.loggedMeal
             ? (day.isToday ? 'bg-coral' : 'bg-ink')
             : 'bg-ink/10'
-
-          // Today gets a ring regardless of fill state
           const todayRing = day.isToday ? 'ring-2 ring-coral ring-offset-2' : ''
-
-          // Day label — narrow weekday initial from the stored date string
           const label = new Date(day.dateStr + 'T12:00:00')
             .toLocaleDateString('en-GB', { weekday: 'narrow' })
 
           return (
             <div key={day.dateStr} className="flex flex-col items-center gap-1">
-              <div
-                className={`w-7 h-7 rounded-full cursor-default ${pillBg} ${todayRing}`}
-              />
+              <div className={`w-7 h-7 rounded-full cursor-default ${pillBg} ${todayRing}`} />
               <span className="text-[10px] text-muted font-body">{label}</span>
             </div>
           )
         })}
       </div>
 
-      {/* Summary lines — solid ink text, numbers in font-space */}
       {hasActivity && (
         <div className="mt-3 space-y-0.5">
           {hasAverages && (
@@ -300,37 +249,23 @@ function WeeklyStrip({ weekDays, weeklyAvgCal, weeklyAvgProtein, daysLogged }) {
 }
 
 // ---------------------------------------------------------------------------
-// RecentContext — up to 3 lines of recent activity. Hidden if no data.
+// RecentContext — up to 2 lines: last meal + last workout.
 // ---------------------------------------------------------------------------
 
-function RecentContext({ recentMeal, recentCheckin, recentWorkout }) {
+function RecentContext({ recentMeal, recentWorkout }) {
   const lines = []
 
-  // ── Last meal ──────────────────────────────────────────────────────────────
   if (recentMeal) {
     const food = recentMeal.parsed_macros?.foods?.join(', ') || recentMeal.raw_text
     if (food) {
-      const when = relativeDay(recentMeal.created_at)
-      const h    = new Date(recentMeal.created_at).getHours()
-      const time = `${h % 12 || 12}${h >= 12 ? 'pm' : 'am'}`
+      const when   = relativeDay(recentMeal.created_at)
+      const h      = new Date(recentMeal.created_at).getHours()
+      const time   = `${h % 12 || 12}${h >= 12 ? 'pm' : 'am'}`
       const prefix = when === 'today' ? `today at ${time}` : when === 'yesterday' ? `yesterday at ${time}` : `${when} at ${time}`
       lines.push(`Last meal: ${prefix} — ${food}`)
     }
   }
 
-  // ── Last check-in ──────────────────────────────────────────────────────────
-  if (recentCheckin) {
-    const when = relativeDay(recentCheckin.created_at)
-    // "N days ago's" is grammatically broken — switch phrasing for that case.
-    const label = when === 'today'
-      ? "Today's check-in"
-      : when === 'yesterday'
-        ? "Yesterday's check-in"
-        : `Last check-in (${when})`
-    lines.push(`${label}: mood ${recentCheckin.mood} · stress ${recentCheckin.stress}`)
-  }
-
-  // ── Last workout ───────────────────────────────────────────────────────────
   if (recentWorkout) {
     const desc = recentWorkout.description?.trim()
     if (desc) {
@@ -340,7 +275,6 @@ function RecentContext({ recentMeal, recentCheckin, recentWorkout }) {
     }
   }
 
-  // Hide the section entirely if there's nothing to show.
   if (lines.length === 0) return null
 
   return (
@@ -360,20 +294,18 @@ function RecentContext({ recentMeal, recentCheckin, recentWorkout }) {
 // ---------------------------------------------------------------------------
 
 export default function HomeTab({ user, client, onTabChange }) {
-  // Single state object. null = still loading.
-  // Shape documented inline so it's easy to console.log and debug.
   const [homeData, setHomeData] = useState(null)
 
   useEffect(() => {
     const load = async () => {
       const todayStr = new Date().toLocaleDateString('en-CA')
 
-      // 7-day window: midnight 6 days ago → now (covers today + 6 prior days)
+      // 7-day window
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
       sevenDaysAgo.setHours(0, 0, 0, 0)
 
-      // 60-day window for streak calculation
+      // 60-day window for streak
       const sixtyDaysAgo = new Date()
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 59)
       sixtyDaysAgo.setHours(0, 0, 0, 0)
@@ -381,32 +313,18 @@ export default function HomeTab({ user, client, onTabChange }) {
       const sevenISO = sevenDaysAgo.toISOString()
       const sixtyISO = sixtyDaysAgo.toISOString()
 
-      // The Supabase browser client returns a PostgrestBuilder (thenable) not
-      // a real Promise, so .catch() isn't on its prototype. Wrapping each
-      // query in Promise.resolve() converts it to a native Promise first.
       const q = (query, fallback) => Promise.resolve(query).catch(() => fallback)
 
-      // All 9 queries in one Promise.all. Per-query fallback so one failure
-      // doesn't kill the rest — partial data is better than nothing.
       const [
         mealCountRes,       // 0 — lifetime meal count (new-client check)
-        checkinCountRes,    // 1 — lifetime check-in count
-        messageCountRes,    // 2 — lifetime user message count
-        mealDates60Res,     // 3 — meal dates last 60 days (streak)
-        checkinDates60Res,  // 4 — check-in dates last 60 days (streak)
-        msgDates60Res,      // 5 — user message dates last 60 days (streak)
-        meals7Res,          // 6 — full meal rows last 7 days (strip + averages + today)
-        checkins7Res,       // 7 — full check-in rows last 7 days (strip + recent)
-        recentWorkoutRes,   // 8 — most recent workout (RecentContext)
+        messageCountRes,    // 1 — lifetime user message count
+        mealDates60Res,     // 2 — meal dates last 60 days (streak)
+        msgDates60Res,      // 3 — user message dates last 60 days (streak)
+        meals7Res,          // 4 — full meal rows last 7 days
+        recentWorkoutRes,   // 5 — most recent workout
       ] = await Promise.all([
         q(supabase
           .from('meals')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', user.id),
-          { count: 0 }),
-
-        q(supabase
-          .from('check_ins')
           .select('*', { count: 'exact', head: true })
           .eq('client_id', user.id),
           { count: 0 }),
@@ -420,13 +338,6 @@ export default function HomeTab({ user, client, onTabChange }) {
 
         q(supabase
           .from('meals')
-          .select('created_at')
-          .eq('client_id', user.id)
-          .gte('created_at', sixtyISO),
-          { data: [] }),
-
-        q(supabase
-          .from('check_ins')
           .select('created_at')
           .eq('client_id', user.id)
           .gte('created_at', sixtyISO),
@@ -450,14 +361,6 @@ export default function HomeTab({ user, client, onTabChange }) {
           { data: [] }),
 
         q(supabase
-          .from('check_ins')
-          .select('mood, stress, notes, created_at')
-          .eq('client_id', user.id)
-          .gte('created_at', sevenISO)
-          .order('created_at', { ascending: false }),
-          { data: [] }),
-
-        q(supabase
           .from('workouts')
           .select('description, created_at')
           .eq('client_id', user.id)
@@ -467,34 +370,28 @@ export default function HomeTab({ user, client, onTabChange }) {
           { data: null }),
       ])
 
-      const meals7    = meals7Res.data    || []
-      const checkins7 = checkins7Res.data || []
+      const meals7 = meals7Res.data || []
 
-      // ── New-client check ─────────────────────────────────────────────────
-      // Zero of everything ever (not just last 7 days).
+      // ── New-client: no meals and no messages ever ────────────────────────
       const isNewClient = (
         (mealCountRes.count    || 0) === 0 &&
-        (checkinCountRes.count || 0) === 0 &&
         (messageCountRes.count || 0) === 0
       )
 
-      // ── Streak ───────────────────────────────────────────────────────────
-      // Union of all activity dates from last 60 days into one Set.
+      // ── Streak: meal days + message days (last 60) ───────────────────────
       const activityDates60 = new Set([
-        ...(mealDates60Res.data    || []).map(m => toLocalDateStr(m.created_at)),
-        ...(checkinDates60Res.data || []).map(c => toLocalDateStr(c.created_at)),
-        ...(msgDates60Res.data     || []).map(m => toLocalDateStr(m.created_at)),
+        ...(mealDates60Res.data || []).map(m => toLocalDateStr(m.created_at)),
+        ...(msgDates60Res.data  || []).map(m => toLocalDateStr(m.created_at)),
       ])
       const streak = computeStreak(activityDates60)
 
-      // ── Today's state (derived from 7-day sets, no extra query) ──────────
-      const todayMeals    = meals7.filter(m => toLocalDateStr(m.created_at) === todayStr)
-      const hasTodayCheckin = checkins7.some(c => toLocalDateStr(c.created_at) === todayStr)
+      // ── Today's meals ────────────────────────────────────────────────────
+      const todayMeals = meals7.filter(m => toLocalDateStr(m.created_at) === todayStr)
 
-      // ── Weekly strip ─────────────────────────────────────────────────────
-      const weekDays = buildWeekDays(meals7, checkins7)
+      // ── Weekly strip — meal days only ────────────────────────────────────
+      const weekDays = buildWeekDays(meals7)
 
-      // ── Weekly averages (per logged day, not per calendar day) ───────────
+      // ── Weekly averages ──────────────────────────────────────────────────
       const uniqueMealDays = new Set(meals7.map(m => toLocalDateStr(m.created_at))).size
       const mealTotals = meals7.reduce(
         (acc, m) => ({
@@ -505,38 +402,30 @@ export default function HomeTab({ user, client, onTabChange }) {
       )
       const weeklyAvgCal     = uniqueMealDays > 0 ? Math.round(mealTotals.calories / uniqueMealDays) : 0
       const weeklyAvgProtein = uniqueMealDays > 0 ? Math.round(mealTotals.protein  / uniqueMealDays) : 0
+      const daysLogged       = weekDays.filter(d => d.loggedMeal).length
 
-      // ── Days logged this week (at least one action) ──────────────────────
-      const daysLogged = weekDays.filter(d => d.loggedMeal || d.loggedCheckin).length
-
-      // ── Most recent items for RecentContext ──────────────────────────────
-      const recentMeal    = meals7[0]             || null  // desc order, so [0] is latest
-      const recentCheckin = checkins7[0]          || null
+      // ── Most recent items ────────────────────────────────────────────────
+      const recentMeal    = meals7[0]             || null
       const recentWorkout = recentWorkoutRes.data || null
 
       setHomeData({
-        isNewClient,      // bool — drives TodaysFocus new-client path
-        streak,           // number — consecutive days with activity
-        todayMeals,       // [] — today's logged meals (TodaysFocus + calorie totals)
-        hasTodayCheckin,  // bool — has client checked in today (TodaysFocus)
-        weekDays,         // [7] — { dateStr, label, loggedMeal, loggedCheckin, isToday }
-        weeklyAvgCal,     // number — avg kcal on days with meals
-        weeklyAvgProtein, // number — avg protein on days with meals
-        daysLogged,       // number — days in last 7 with any activity
-        recentMeal,       // obj|null — most recent meal row
-        recentCheckin,    // obj|null — most recent check-in row
-        recentWorkout,    // obj|null — most recent workout row
+        isNewClient,
+        streak,
+        todayMeals,
+        weekDays,
+        weeklyAvgCal,
+        weeklyAvgProtein,
+        daysLogged,
+        recentMeal,
+        recentWorkout,
       })
     }
 
     load()
   }, [user.id])
 
-  // ── Derived values ────────────────────────────────────────────────────────
-  const latestCheckin = homeData?.recentCheckin || null  // wellbeing snapshot
-  const displayName   = client?.name || user?.email?.split('@')[0] || 'there'
+  const displayName = client?.name || user?.email?.split('@')[0] || 'there'
 
-  // homeData === null means the fetch hasn't resolved yet
   if (homeData === null) {
     return (
       <div className="flex flex-col h-full overflow-y-auto bg-bone">
@@ -565,47 +454,21 @@ export default function HomeTab({ user, client, onTabChange }) {
         />
       </div>
 
-      {/* TodaysFocus — sits between greeting and data cards */}
       <div className="px-5 pb-3">
         <TodaysFocus homeData={homeData} onTabChange={onTabChange} />
       </div>
 
       <div className="px-5 pb-6 space-y-3">
-
-        {/* WeeklyStrip — 7-day activity view */}
         <WeeklyStrip
           weekDays={homeData.weekDays}
           weeklyAvgCal={homeData.weeklyAvgCal}
           weeklyAvgProtein={homeData.weeklyAvgProtein}
           daysLogged={homeData.daysLogged}
         />
-
-        {/* RecentContext — 1-3 lines of latest activity, hidden if none */}
         <RecentContext
           recentMeal={homeData.recentMeal}
-          recentCheckin={homeData.recentCheckin}
           recentWorkout={homeData.recentWorkout}
         />
-
-        {/* Wellbeing snapshot */}
-        {latestCheckin && (
-          <div className="bg-surface rounded-2xl p-3.5 border border-ink/6">
-            <p className="text-sm font-bold font-familjen text-ink mb-2.5">Wellbeing</p>
-            <div className="flex gap-3">
-              <div className="flex-1 bg-bone rounded-xl p-3 text-center">
-                <p className="text-2xl font-space font-bold text-ink">{latestCheckin.mood}</p>
-                <p className="text-[11px] font-body text-muted mt-0.5">Mood</p>
-              </div>
-              <div className="flex-1 bg-bone rounded-xl p-3 text-center">
-                <p className="text-2xl font-space font-bold text-ink">{latestCheckin.stress}</p>
-                <p className="text-[11px] font-body text-muted mt-0.5">Stress</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quick actions grid removed — replaced by TodaysFocus above */}
-
       </div>
     </div>
   )

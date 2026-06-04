@@ -4,13 +4,13 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
-function getStatus(lastMessageAt, lastMood) {
+function getStatus(lastMessageAt) {
   const now = new Date()
   const hours = lastMessageAt
     ? (now - new Date(lastMessageAt)) / (1000 * 60 * 60)
     : Infinity
-  if (hours > 48 || (lastMood !== null && lastMood < 4)) return 'red'
-  if (hours <= 24 && (lastMood === null || lastMood >= 6)) return 'green'
+  if (hours > 48) return 'red'
+  if (hours <= 24) return 'green'
   return 'amber'
 }
 
@@ -53,23 +53,15 @@ export default async function TrainerPage() {
 
   const clientsWithStatus = await Promise.all(
     (clients || []).map(async (client) => {
-      const [{ data: lastMsg }, { data: lastCheckin }] = await Promise.all([
-        db.from('messages')
-          .select('created_at')
-          .eq('client_id', client.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        db.from('check_ins')
-          .select('mood')
-          .eq('client_id', client.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ])
+      const { data: lastMsg } = await db.from('messages')
+        .select('created_at')
+        .eq('client_id', client.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
       return {
         ...client,
-        status: getStatus(lastMsg?.created_at, lastCheckin?.mood ?? null),
+        status: getStatus(lastMsg?.created_at),
         lastMessageAt: lastMsg?.created_at,
       }
     })

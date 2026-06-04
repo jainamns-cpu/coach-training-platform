@@ -9,7 +9,7 @@ import HomeTab from './tabs/HomeTab'
 import NutritionTab from './tabs/NutritionTab'
 import ChatTab from './tabs/ChatTab'
 import WorkoutTab from './tabs/WorkoutTab'
-import WellbeingTab from './tabs/WellbeingTab'
+import GoalsTab from './tabs/GoalsTab'
 
 function HomeIcon({ className }) {
   return (
@@ -52,7 +52,7 @@ const TABS = [
   { id: 'nutrition', label: 'Nutrition', Icon: NutritionIcon },
   { id: 'chat',      label: 'Chat',      Icon: ChatIcon      },
   { id: 'workout',   label: 'Workout',   Icon: WorkoutIcon   },
-  { id: 'wellbeing', label: 'Wellbeing', Icon: WellbeingIcon },
+  { id: 'wellbeing', label: 'Goals', Icon: WellbeingIcon },
 ]
 
 const TAB_CONFIG = {
@@ -113,7 +113,7 @@ export default function AppPage() {
           {activeTab === 'nutrition' && <NutritionTab user={user} client={client} />}
           {activeTab === 'chat'      && <ChatTab user={user} />}
           {activeTab === 'workout'   && <WorkoutTab user={user} />}
-          {activeTab === 'wellbeing' && <WellbeingTab user={user} client={client} />}
+          {activeTab === 'wellbeing' && <GoalsTab user={user} client={client} />}
         </div>
 
         <nav className="bg-surface border-t border-ink/6 flex-shrink-0">
