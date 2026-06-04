@@ -73,7 +73,7 @@ async function getWorkoutSummary(db, clientId) {
 
   const { data: workouts } = await db
     .from('workouts')
-    .select('created_at, description')
+    .select('created_at, description, workout_type, intensity, duration_minutes')
     .eq('client_id', clientId)
     .gte('created_at', sevenDaysAgo.toISOString())
     .order('created_at', { ascending: true })
@@ -84,36 +84,17 @@ async function getWorkoutSummary(db, clientId) {
     const date = new Date(w.created_at).toLocaleDateString('en-GB', {
       weekday: 'short', month: 'short', day: 'numeric',
     })
-    return `${date} — ${w.description}`
+    const tags = [
+      w.workout_type,
+      w.intensity,
+      w.duration_minutes ? `${w.duration_minutes} min` : null,
+    ].filter(Boolean).join(' · ')
+    return `${date} — ${w.description}${tags ? ` (${tags})` : ''}`
   })
 
   return `Client's workout log — last 7 days:\n${lines.join('\n')}`
 }
 
-async function getCheckinSummary(db, clientId) {
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-  const { data: checkins } = await db
-    .from('check_ins')
-    .select('created_at, mood, stress, notes')
-    .eq('client_id', clientId)
-    .gte('created_at', sevenDaysAgo.toISOString())
-    .order('created_at', { ascending: true })
-
-  if (!checkins || checkins.length === 0) return null
-
-  const lines = checkins.map(c => {
-    const date = new Date(c.created_at).toLocaleDateString('en-GB', {
-      weekday: 'short', month: 'short', day: 'numeric',
-    })
-    let line = `${date} — Mood: ${c.mood}/10, Stress: ${c.stress}/10`
-    if (c.notes) line += ` — "${c.notes}"`
-    return line
-  })
-
-  return `Client's recent check-ins — last 7 days:\n${lines.join('\n')}`
-}
 
 export async function POST(request) {
   const user = await getAuthenticatedUser()
@@ -161,16 +142,14 @@ export async function POST(request) {
 
   const contextMessages = (history || []).reverse()
 
-  // Fetch meal history, check-in history, and workout history in parallel, inject into system prompt
-  const [mealSummary, checkinSummary, workoutSummary] = await Promise.all([
+  // Fetch meal history and workout history in parallel, inject into system prompt
+  const [mealSummary, workoutSummary] = await Promise.all([
     getMealSummary(db, user.id),
-    getCheckinSummary(db, user.id),
     getWorkoutSummary(db, user.id),
   ])
 
   const contextParts = [COACH_SYSTEM_PROMPT]
   if (mealSummary) contextParts.push('---\n\n' + mealSummary)
-  if (checkinSummary) contextParts.push('---\n\n' + checkinSummary)
   if (workoutSummary) contextParts.push('---\n\n' + workoutSummary)
   const fullSystemPrompt = contextParts.join('\n\n')
 

@@ -31,13 +31,32 @@ async function getAuthenticatedUser() {
   return user
 }
 
-const WORKOUT_PROMPT = `You are an AI coach. The client just logged a workout. Reply with 2-3 warm, direct sentences acknowledging what they did. Be specific if details are given. No emoji, no lists, no lecture — just a brief, grounded response that feels like a coach who was there.`
+const WORKOUT_PROMPT = `You are an AI coach acknowledging a workout the client just logged. Reply in 1-2 short sentences:
+
+- One sentence acknowledging the session.
+- Optionally, a second sentence with a small grounded observation (e.g. "lower body's been consistent this week" or "first cardio in a while").
+
+Rules:
+- Total reply: max two short sentences. No third sentence.
+- Do NOT editorialize ("training X is one of the hardest things…", "consistency matters…", motivational filler).
+- Do NOT end with a question UNLESS the client's description explicitly mentioned pain, fatigue, struggle, or something specific worth responding to.
+- No emoji, no lists, no lecture, no closing pep talk.
+- Voice: direct, warm, grounded. Like a trainer who was there and is moving on with their day.
+
+Examples of the right length and tone:
+- "Good. Legs done."
+- "Solid session. Lower body's been consistent this week."
+- "Done. Note how the knees feel tomorrow." (only because client mentioned knees)
+- "Nice work. Pull day with rows is a good combo for you."
+
+Examples of what NOT to do:
+- "Good work getting that leg session done. Training legs consistently is one of the hardest things to stick with, so showing up matters. How are you feeling after it?" (too long, editorializes, asks an unearned question)`
 
 export async function POST(request) {
   const user = await getAuthenticatedUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { description } = await request.json()
+  const { description, workout_type, intensity, duration_minutes } = await request.json()
   if (!description?.trim()) return Response.json({ error: 'No description' }, { status: 400 })
 
   const db = getServiceClient()
@@ -68,6 +87,9 @@ export async function POST(request) {
       client_id: user.id,
       description: description.trim(),
       coach_reply: reply,
+      workout_type:     workout_type     || null,
+      intensity:        intensity        || null,
+      duration_minutes: duration_minutes || null,
     })
     .select()
     .single()
