@@ -27,6 +27,20 @@ MACROS: {"foods": ["food 1", "food 2"], "protein": 0, "carbs": 0, "fat": 0, "cal
 
 If the description is too vague to estimate, say so in COACH and write MACROS: null`
 
+const PHOTO_WITH_DESC_PROMPT = `The client has sent a photo of their meal along with a description.
+
+Use the DESCRIPTION as the primary source for portions and quantities. Use the photo for food identification, context, and anything the description omits or is unclear about. Quantity words in the description ("half", "200g", "two rotis", "small bowl") override your visual portion guesses — trust the description over what the photo appears to show.
+
+Identify any foods visible in the photo that the description doesn't mention. Estimate macros using described quantities where given, visual estimation only where the description is silent.
+
+Reply as the coach first — warm, direct, brief, no emoji. Then on a new line provide the structured data.
+
+Use this exact format:
+COACH: [your reply here]
+MACROS: {"foods": ["food 1", "food 2"], "protein": 0, "carbs": 0, "fat": 0, "calories": 0}
+
+Round macros to the nearest 5g. If you genuinely cannot parse the meal, say so in COACH and write MACROS: null`
+
 function getServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -81,6 +95,11 @@ export async function POST(request) {
       return Response.json({ error: 'Failed to access image' }, { status: 500 })
     }
 
+    const prompt = textDescription?.trim() ? PHOTO_WITH_DESC_PROMPT : PHOTO_PROMPT
+    const textBlock = textDescription?.trim()
+      ? { type: 'text', text: `Client's description: ${textDescription.trim()}\n\n${prompt}` }
+      : { type: 'text', text: prompt }
+
     try {
       claudeResponse = await anthropic.messages.create({
         model: 'claude-sonnet-4-5',
@@ -92,10 +111,7 @@ export async function POST(request) {
               type: 'image',
               source: { type: 'url', url: signedData.signedUrl },
             },
-            {
-              type: 'text',
-              text: PHOTO_PROMPT,
-            },
+            textBlock,
           ],
         }],
       })
