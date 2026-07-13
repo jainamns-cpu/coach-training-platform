@@ -147,6 +147,8 @@ export default function NutritionTab({ user, client }) {
   const [showAdd, setShowAdd] = useState(false)
   const [inputMode, setInputMode] = useState('text')
   const [textInput, setTextInput] = useState('')
+  const [photoDesc, setPhotoDesc] = useState('')
+  const [photoHint, setPhotoHint] = useState(false)
   const [listening, setListening] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [feedback, setFeedback] = useState(null)
@@ -232,6 +234,11 @@ export default function NutritionTab({ user, client }) {
 
   const submitPhoto = async (file) => {
     if (!file || submitting) return
+    if (!photoDesc.trim()) {
+      setPhotoHint(true)
+      return
+    }
+    setPhotoHint(false)
     setSubmitting(true)
     setFeedback(null)
     try {
@@ -242,13 +249,15 @@ export default function NutritionTab({ user, client }) {
       const res = await fetch('/api/meal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imagePath: path }),
+        body: JSON.stringify({ imagePath: path, textDescription: photoDesc.trim() }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setFeedback(data.macros
         ? `Logged — P: ${data.macros.protein}g  C: ${data.macros.carbs}g  F: ${data.macros.fat}g  ~${data.macros.calories} cal`
         : 'Logged')
+      setPhotoDesc('')
+      setPhotoHint(false)
       await loadMeals()
     } catch (e) {
       setFeedback('Something went wrong. Try again.')
@@ -377,6 +386,17 @@ export default function NutritionTab({ user, client }) {
               </>
             ) : (
               <>
+                <input
+                  value={photoDesc}
+                  onChange={e => { setPhotoDesc(e.target.value); setPhotoHint(false) }}
+                  placeholder="What is it and roughly how much?"
+                  className="w-full bg-bone border border-ink/15 rounded-xl px-3 py-2.5 text-sm font-body text-ink placeholder-muted focus:outline-none focus:border-ink/30 transition-colors"
+                />
+                {photoHint && (
+                  <p className="text-xs text-muted font-body -mt-1">
+                    Add a quick description — what is it and roughly how much? Makes the estimate much more accurate.
+                  </p>
+                )}
                 <input
                   ref={fileRef}
                   type="file"

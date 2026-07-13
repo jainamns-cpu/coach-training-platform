@@ -68,6 +68,7 @@ export default function AppPage() {
   const [user, setUser] = useState(null)
   const [client, setClient] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [signedOut, setSignedOut] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -78,7 +79,7 @@ export default function AppPage() {
         const { data: refreshed } = await supabase.auth.refreshSession()
         user = refreshed?.user
       }
-      if (!user) { router.push('/'); return }
+      if (!user) { setSignedOut(true); setLoading(false); return }
       setUser(user)
       const { data: clientData } = await supabase
         .from('clients').select('*').eq('id', user.id).single()
@@ -88,7 +89,7 @@ export default function AppPage() {
     init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') router.push('/')
+      if (event === 'SIGNED_OUT') setSignedOut(true)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -98,6 +99,23 @@ export default function AppPage() {
       <div className="flex justify-center min-h-screen bg-bone">
         <div className="w-full max-w-[440px] flex items-center justify-center h-screen">
           <p className="text-muted text-sm font-body">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (signedOut) {
+    return (
+      <div className="flex justify-center min-h-screen bg-bone">
+        <div className="w-full max-w-[440px] flex flex-col items-center justify-center h-screen px-8 text-center">
+          <h1 className="text-2xl font-bold font-familjen text-ink mb-2">You've been signed out</h1>
+          <p className="text-sm font-body text-muted mb-8">Log in again to continue.</p>
+          <button
+            onClick={() => router.push('/')}
+            className="bg-coral text-white rounded-xl px-8 py-3 text-sm font-semibold font-body active:opacity-80 transition-opacity"
+          >
+            Go to login
+          </button>
         </div>
       </div>
     )

@@ -20,7 +20,16 @@ export default function ChatTab({ user }) {
         .eq('client_id', user.id)
         .order('created_at', { ascending: true })
         .limit(50)
-      setMessages(data || [])
+
+      if (!data || data.length === 0) {
+        const res = await fetch('/api/welcome', { method: 'POST' })
+        if (res.ok) {
+          const { message } = await res.json()
+          setMessages(message ? [message] : [])
+        }
+      } else {
+        setMessages(data)
+      }
       setLoading(false)
     }
     load()
@@ -102,12 +111,6 @@ export default function ChatTab({ user }) {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-2">
-        {messages.length === 0 && (
-          <div className="text-center pt-10">
-            <p className="text-muted text-sm font-body">Start the conversation.</p>
-            <p className="text-muted/60 text-xs font-body mt-1">Ask about food, training, sleep — anything.</p>
-          </div>
-        )}
         {messages.map(msg => (
           <div
             key={msg.id}
