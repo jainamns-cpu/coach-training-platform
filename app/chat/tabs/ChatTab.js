@@ -22,6 +22,7 @@ export default function ChatTab({ user }) {
         .limit(50)
 
       if (!data || data.length === 0) {
+        // First-time user — seed welcome message
         const res = await fetch('/api/welcome', { method: 'POST' })
         if (res.ok) {
           const { message } = await res.json()
@@ -29,6 +30,12 @@ export default function ChatTab({ user }) {
         }
       } else {
         setMessages(data)
+        // Returning user — check if they've gone quiet and need a nudge
+        const res = await fetch('/api/reengage', { method: 'POST' })
+        if (res.ok) {
+          const { message } = await res.json()
+          if (message) setMessages(prev => [...prev, message])
+        }
       }
       setLoading(false)
     }

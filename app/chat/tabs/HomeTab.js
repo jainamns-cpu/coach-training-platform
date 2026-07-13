@@ -145,6 +145,60 @@ function RecallGreeting({ clientId, displayName, isNewClient }) {
 }
 
 // ---------------------------------------------------------------------------
+// DailyTip — one Claude-generated nutrition/health tip, cached per day.
+// ---------------------------------------------------------------------------
+
+const TIP_TTL = 24 * 60 * 60 * 1000 // 24 hours
+
+function DailyTip({ clientId, isNewClient }) {
+  const [tip, setTip] = useState(null)
+
+  useEffect(() => {
+    if (!clientId || isNewClient) return
+
+    let cancelled = false
+
+    const today    = new Date().toLocaleDateString('en-CA')
+    const cacheKey = `dailyTip:${clientId}:${today}`
+
+    try {
+      const raw = localStorage.getItem(cacheKey)
+      if (raw) {
+        const { tip: cached, cachedAt } = JSON.parse(raw)
+        if (cached && Date.now() - cachedAt < TIP_TTL) {
+          if (!cancelled) setTip(cached)
+          return
+        }
+      }
+    } catch {}
+
+    fetch('/api/daily-tip', { method: 'GET' })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (cancelled) return
+        const t = data?.tip
+        if (!t) return
+        setTip(t)
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ tip: t, cachedAt: Date.now() }))
+        } catch {}
+      })
+      .catch(() => {})
+
+    return () => { cancelled = true }
+  }, [clientId, isNewClient])
+
+  if (!tip) return null
+
+  return (
+    <div className="bg-surface rounded-2xl p-3.5 border border-ink/6">
+      <p className="text-xs font-bold font-familjen text-ink mb-1.5">Today's tip</p>
+      <p className="text-sm font-body text-muted leading-snug">{tip}</p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // TodaysFocus — one primary action + two fixed secondary buttons.
 // ---------------------------------------------------------------------------
 
@@ -459,6 +513,7 @@ export default function HomeTab({ user, client, onTabChange }) {
       </div>
 
       <div className="px-5 pb-6 space-y-3">
+        <DailyTip clientId={user.id} isNewClient={homeData.isNewClient} />
         <WeeklyStrip
           weekDays={homeData.weekDays}
           weeklyAvgCal={homeData.weeklyAvgCal}
