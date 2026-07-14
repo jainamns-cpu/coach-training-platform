@@ -18,10 +18,13 @@ export default function ChatTab({ user }) {
         .from('messages')
         .select('*')
         .eq('client_id', user.id)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .limit(50)
 
-      if (!data || data.length === 0) {
+      const sorted = data ? [...data].reverse() : []
+
+      if (sorted.length === 0) {
         // First-time user — seed welcome message
         const res = await fetch('/api/welcome', { method: 'POST' })
         if (res.ok) {
@@ -29,7 +32,7 @@ export default function ChatTab({ user }) {
           setMessages(message ? [message] : [])
         }
       } else {
-        setMessages(data)
+        setMessages(sorted)
         // Returning user — check if they've gone quiet and need a nudge
         const res = await fetch('/api/reengage', { method: 'POST' })
         if (res.ok) {
