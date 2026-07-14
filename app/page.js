@@ -14,12 +14,12 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Detect expired magic link error in the URL hash and show a clean message
+  // Detect auth errors returned from /auth/callback via query param (PKCE flow)
   useEffect(() => {
-    const hash = window.location.hash
-    if (hash.includes('error=access_denied') || hash.includes('otp_expired')) {
-      setError('That login link has expired. Sign in with your password below.')
-      setMode('password')
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('auth_error') === 'expired') {
+      setError('That link expired or was already used — enter your email for a fresh one.')
+      setMode('magic')
       window.history.replaceState(null, '', window.location.pathname)
     }
   }, [])
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard` }
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
     })
     if (error) setError(error.message)
     else setSent(true)
